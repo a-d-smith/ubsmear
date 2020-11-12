@@ -11,7 +11,7 @@ namespace ubsmear
 {
 
 /*
-* @brief A simple matrix class
+* @brief A matrix class
 */
 class UBMatrix
 {
@@ -61,6 +61,26 @@ class UBMatrix
         * @brief Print the matrix to the screen
         */
         void Print() const;
+
+        /**
+        * @brief Overloaded + operator for matrix addition
+        *
+        * @param matrixL the first matrix to add
+        * @param matrixR the second matrix to add
+        *
+        * @return the sum matrixL + matrixR
+        */
+        friend UBMatrix operator+(const UBMatrix &matrixL, const UBMatrix &matrixR);
+
+        /**
+        * @brief Overloaded * operator for matrix multiplication
+        *
+        * @param matrixL the left matrix
+        * @param matrixR the right matrix
+        *
+        * @return the result of the matrix multiplcation matrixL * matrixR
+        */
+        friend UBMatrix operator*(const UBMatrix &matrixL, const UBMatrix &matrixR);
 
     private:
 
@@ -174,6 +194,72 @@ inline void UBMatrix::Print() const
 
         std::cout << ")" << std::endl;
     }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix operator+(const UBMatrix &matrixL, const UBMatrix &matrixR)
+{
+    // Check the input matrices have the same dimensions
+    if (matrixL.m_nRows != matrixR.m_nRows)
+        throw std::invalid_argument("UBMatrix - Can't add matrices with different numbers of rows");
+
+    if (matrixL.m_nCols != matrixR.m_nCols)
+        throw std::invalid_argument("UBMatrix - Can't add matrices with different numbers of columns");
+
+    if (matrixL.m_elements.size() != matrixR.m_elements.size())
+        throw std::logic_error("UBMatrix - Sanity check failed! Input matrices have same dimensions, but different number of elements.");
+
+    const auto nElements = matrixL.m_elements.size();
+    const auto nRows = matrixL.m_nRows;
+    const auto nCols = matrixL.m_nCols;
+
+    // Make a new vector to hold the elements
+    std::vector<float> newElements(nElements);
+    for (size_t i = 0; i < nElements; ++i)
+    {
+        // Do the element-wise addition
+        newElements.at(i) = matrixL.m_elements.at(i) + matrixR.m_elements.at(i);
+    }
+
+    // Construct a new matrix with the added elements
+    return UBMatrix(newElements, nRows, nCols);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix operator*(const UBMatrix &matrixL, const UBMatrix &matrixR)
+{
+    // Check the input matrices have compatible dimensions
+    if (matrixL.m_nCols != matrixR.m_nRows)
+    {
+        throw std::invalid_argument("UBMatrix - Can't multiple matrices with dimensions: (" + std::to_string(matrixL.m_nRows) + ", " +
+            std::to_string(matrixL.m_nCols) + ")*(" + std::to_string(matrixR.m_nRows) + ", " + std::to_string(matrixR.m_nCols) + ")");
+    }
+
+    const auto nRows = matrixL.m_nRows;
+    const auto nCols = matrixR.m_nCols;
+    const auto nDummy = matrixL.m_nCols;
+
+    // Make a new vector to hold the elements
+    std::vector< std::vector<float> > newElements;
+    for (size_t iRow = 0; iRow < nRows; ++iRow)
+    {
+        std::vector<float> row(nCols, 0.f);
+
+        for (size_t iCol = 0; iCol < nCols; ++iCol)
+        {
+            for (size_t iDummy = 0; iDummy < nDummy; ++iDummy)
+            {
+                row.at(iCol) += matrixL.At(iRow, iDummy) * matrixR.At(iDummy, iCol);
+            }
+        }
+
+        newElements.push_back(row);
+    }
+
+    // Construct a new matrix with the added elements
+    return UBMatrix(newElements);
 }
 
 } // namespace ubsmear
