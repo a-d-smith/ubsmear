@@ -1,15 +1,13 @@
 #ifndef UBSMEAR_UBSMEAR
 #define UBSMEAR_UBSMEAR
 
-#include <iostream>
+#include "ubsmear/Objects/UBMatrix.h"
+
+#include "ubsmear/Helpers/UBFileHelper.h"
 
 namespace ubsmear
 {
 
-void HelloWorld()
-{
-    std::cout << "Hello world" << std::endl;
-}
 
 } // namespace ubsmear
 

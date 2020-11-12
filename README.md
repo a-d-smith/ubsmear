@@ -8,7 +8,7 @@ A dependency-free header-only C++ library to forward-fold cross-section predicti
 # Clone this repo
 git clone https://github.com/a-d-smith/ubsmear.git
 
-# Simply add ubsmear/inc as an include path, and #include whatever you need.
+# Simply add ubsmear/inc as an include path, and #include "ubsmear.h"
 # For a simple example, see ubsmear/example/Makefile.
 ```
 
