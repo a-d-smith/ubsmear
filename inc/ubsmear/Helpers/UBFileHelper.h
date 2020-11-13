@@ -10,7 +10,7 @@ namespace ubsmear
 {
 
 /*
-* @brief A helper class for reading csv files
+* @brief A helper class for reading input data files
 */
 class UBFileHelper
 {

@@ -4,6 +4,7 @@
 #include "ubsmear/Objects/UBMatrix.h"
 
 #include "ubsmear/Helpers/UBFileHelper.h"
+#include "ubsmear/Helpers/UBMatrixHelper.h"
 
 namespace ubsmear
 {

@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <iomanip>
+#include <functional>
 
 namespace ubsmear
 {
@@ -63,6 +64,22 @@ class UBMatrix
         void Print() const;
 
         /**
+        * @brief Get the transpose of this matrix (switching rows for columns)
+        *
+        * @return the transpose matrix
+        */
+        UBMatrix GetTranspose() const;
+
+        /**
+        * @brief Set the matrix element at the supplied row and column
+        *
+        * @param rowIndex the input row index
+        * @param columnIndex the input column index
+        * @param value the value to use
+        */
+        void SetElement(const size_t rowIndex, const size_t columnIndex, const float value);
+
+        /**
         * @brief Overloaded + operator for matrix addition
         *
         * @param matrixL the first matrix to add
@@ -71,6 +88,16 @@ class UBMatrix
         * @return the sum matrixL + matrixR
         */
         friend UBMatrix operator+(const UBMatrix &matrixL, const UBMatrix &matrixR);
+
+        /**
+        * @brief Overloaded - operator for matrix subtraction
+        *
+        * @param matrixL the first matrix to add
+        * @param matrixR the second matrix to add
+        *
+        * @return the sum matrixL - matrixR
+        */
+        friend UBMatrix operator-(const UBMatrix &matrixL, const UBMatrix &matrixR);
 
         /**
         * @brief Overloaded * operator for matrix multiplication
@@ -83,6 +110,18 @@ class UBMatrix
         friend UBMatrix operator*(const UBMatrix &matrixL, const UBMatrix &matrixR);
 
     private:
+
+        /**
+        * @brief Apply an element-wise operation between two matrices
+        *
+        * @param matrixL the left matrix
+        * @param matrixR the right matrix
+        * @param operation the element wise operation to apply
+        *
+        * @return the result of the element wise operation
+        */
+        friend UBMatrix ElementWiseOperation(const UBMatrix &matrixL, const UBMatrix &matrixR, const std::function<float(const float, const float)> &operation);
+
 
         size_t             m_nRows;    ///< The number of rows
         size_t             m_nCols;    ///< The number of columns
@@ -142,11 +181,11 @@ inline float UBMatrix::At(const size_t rowIndex, const size_t columnIndex) const
     // Check that the requested index is not out of bounds
     const auto maxRowIndex = m_nRows - 1u;
     if (rowIndex > maxRowIndex)
-        throw std::invalid_argument("UBMatrix::At - the supplied row index, " + std::to_string(rowIndex) + " is out of bounds: 0 -> " + std::to_string(maxRowIndex));
+        throw std::out_of_range("UBMatrix::At - the supplied row index, " + std::to_string(rowIndex) + " is out of bounds: 0 -> " + std::to_string(maxRowIndex));
 
     const auto maxColIndex = m_nCols - 1u;
     if (columnIndex > maxColIndex)
-        throw std::invalid_argument("UBMatrix::At - the supplied column index, " + std::to_string(columnIndex) + " is out of bounds: 0 -> " + std::to_string(maxColIndex));
+        throw std::out_of_range("UBMatrix::At - the supplied column index, " + std::to_string(columnIndex) + " is out of bounds: 0 -> " + std::to_string(maxColIndex));
 
     const auto flattenedIndex = (rowIndex * m_nCols) + columnIndex;
     return m_elements.at(flattenedIndex);
@@ -198,17 +237,55 @@ inline void UBMatrix::Print() const
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-inline UBMatrix operator+(const UBMatrix &matrixL, const UBMatrix &matrixR)
+inline UBMatrix UBMatrix::GetTranspose() const
+{
+    // Get the elements of the transpose matrix
+    std::vector<float> elementsT;
+    for (unsigned int i = 0; i < m_elements.size(); ++i)
+    {
+        // Get the row & column index corresponding to i for the *transpose* matrix
+        const auto iRowT = i / m_nRows;
+        const auto iColT = i % m_nRows;
+
+        // Get the corresponding element switching rows for columns
+        elementsT.push_back(this->At(iColT, iRowT));
+    }
+
+    // Construct the transpose matrix
+    return UBMatrix(elementsT, m_nCols, m_nRows);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline void UBMatrix::SetElement(const size_t rowIndex, const size_t columnIndex, const float value)
+{
+    // Check that the requested index is not out of bounds
+    const auto maxRowIndex = m_nRows - 1u;
+    if (rowIndex > maxRowIndex)
+        throw std::out_of_range("UBMatrix::SetElement - the supplied row index, " + std::to_string(rowIndex) + " is out of bounds: 0 -> " + std::to_string(maxRowIndex));
+
+    const auto maxColIndex = m_nCols - 1u;
+    if (columnIndex > maxColIndex)
+        throw std::out_of_range("UBMatrix::SetElement - the supplied column index, " + std::to_string(columnIndex) + " is out of bounds: 0 -> " + std::to_string(maxColIndex));
+
+    // Set the value of the matrix element at this index
+    const auto flattenedIndex = (rowIndex * m_nCols) + columnIndex;
+    m_elements.at(flattenedIndex) = value;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix ElementWiseOperation(const UBMatrix &matrixL, const UBMatrix &matrixR, const std::function<float(const float, const float)> &operation)
 {
     // Check the input matrices have the same dimensions
     if (matrixL.m_nRows != matrixR.m_nRows)
-        throw std::invalid_argument("UBMatrix - Can't add matrices with different numbers of rows");
+        throw std::invalid_argument("UBMatrix::ElementWiseOperation - Input matrices have different numbers of rows");
 
     if (matrixL.m_nCols != matrixR.m_nCols)
-        throw std::invalid_argument("UBMatrix - Can't add matrices with different numbers of columns");
+        throw std::invalid_argument("UBMatrix::ElementWiseOperation - Input matrices have different numbers of columns");
 
     if (matrixL.m_elements.size() != matrixR.m_elements.size())
-        throw std::logic_error("UBMatrix - Sanity check failed! Input matrices have same dimensions, but different number of elements.");
+        throw std::invalid_argument("UBMatrix::ElementWiseOperation - Sanity check failed! Input matrices have same dimensions, but different number of elements.");
 
     const auto nElements = matrixL.m_elements.size();
     const auto nRows = matrixL.m_nRows;
@@ -218,12 +295,26 @@ inline UBMatrix operator+(const UBMatrix &matrixL, const UBMatrix &matrixR)
     std::vector<float> newElements(nElements);
     for (size_t i = 0; i < nElements; ++i)
     {
-        // Do the element-wise addition
-        newElements.at(i) = matrixL.m_elements.at(i) + matrixR.m_elements.at(i);
+        // Do the element-wise operation
+        newElements.at(i) = operation(matrixL.m_elements.at(i), matrixR.m_elements.at(i));
     }
 
     // Construct a new matrix with the added elements
     return UBMatrix(newElements, nRows, nCols);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix operator+(const UBMatrix &matrixL, const UBMatrix &matrixR)
+{
+    return ElementWiseOperation(matrixL, matrixR, [] (const auto &l, const auto &r) { return l + r; } );
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix operator-(const UBMatrix &matrixL, const UBMatrix &matrixR)
+{
+    return ElementWiseOperation(matrixL, matrixR, [] (const auto &l, const auto &r) { return l - r; } );
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
