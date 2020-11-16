@@ -1,5 +1,5 @@
 #ifndef UBSMEAR_UBSMEAR_HELPERS_UBMATRIXHELPER
-#define UBSMEAR_UBSMEAR_HELPERS_UBMATRIXELPER
+#define UBSMEAR_UBSMEAR_HELPERS_UBMATRIXHELPER
 
 #include "ubsmear/Objects/UBMatrix.h"
 
@@ -77,6 +77,16 @@ class UBMatrixHelper
         * @return the real symmetric matrix which has the supplied eigenvalues and eigenvectors
         */
         static UBMatrix GetMatrixFromEigenDecomposition(const UBMatrix &eigenvalues, const UBMatrix &eigenvectorMatrix);
+
+        /**
+        * @brief Reconstruct a real symmetrix matrix from a partial set of it's eigenvectors and eigenvalues.
+        *
+        * @param eigenvalues the input column vectors of L eigenvalues
+        * @param eigenvectorMatrix the input (N x L) matrix of eigenvectors, whose columns correspond the eigenvectors
+        *
+        * @return the (N x N) real symmetrix matrix which has the supplied eigenvalues and eigenvectors
+        */
+        static UBMatrix GetMatrixFromPartialEigenDecomposition(const UBMatrix &eigenvalues, const UBMatrix &eigenvectorMatrix);
 
         /**
         * @brief Check if the input matrix is square
@@ -379,7 +389,27 @@ inline UBMatrix UBMatrixHelper::GetMatrixFromEigenDecomposition(const UBMatrix &
     if (eigenvectorMatrix.GetColumns() != size)
         throw std::invalid_argument("UBMatrixHelper::GetMatrixFromEigenDecomposition - the number of columns of the input eigenvector matrix, doesn't match the number of supplied eigenvalues");
 
-    // Get the diagonal matrix with the eigenvalues along the diagonal
+    return UBMatrixHelper::GetMatrixFromPartialEigenDecomposition(eigenvalues, eigenvectorMatrix);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix UBMatrixHelper::GetMatrixFromPartialEigenDecomposition(const UBMatrix &eigenvalues, const UBMatrix &eigenvectorMatrix)
+{
+    // Check that the input matrices have consistent dimensions
+    if (eigenvalues.GetColumns() != 1u)
+        throw std::invalid_argument("UBMatrixHelper::GetMatrixFromPartialEigenDecomposition - input eigenvalues is not a column vector");
+
+    const auto nEigenvalues = eigenvalues.GetRows();
+
+    if (eigenvectorMatrix.GetColumns() != nEigenvalues)
+        throw std::invalid_argument("UBMatrixHelper::GetMatrixFromPartialEigenDecomposition - the number of columns of the input eigenvector matrix, doesn't match the number of supplied eigenvalues");
+
+    const auto size = eigenvectorMatrix.GetRows();
+    if (size < nEigenvalues)
+        throw std::invalid_argument("UBMatrixHelper::GetMatrixFromPartialEigenDecomposition - the number of rows of the input eigenvector matrix is smaller than the number of columns");
+
+    // Get the diagonal matrix with eigenvalues along the diagonal
     const auto eigenvalueMatrix = ubsmear::UBMatrixHelper::GetDiagonalMatrix(eigenvalues);
 
     // Perform the transformation

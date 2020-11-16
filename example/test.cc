@@ -2,34 +2,98 @@
 
 #include <iostream>
 
+using namespace ubsmear;
+
 int main()
 {
-    // Load the input matrix
-    const auto matrix = ubsmear::UBFileHelper::ReadMatrix("matrix.txt");
+    // Define some dummy data
+    // The numbers here are really just make up to test the functionality of the code - but they are chosen to be semi-realistic
 
-    // Get the eigenvalues & eigenvectors
-    const auto [eigenvalues, eigenvectorMatrix] = ubsmear::UBMatrixHelper::GetEigenDecomposition(matrix, 1e-6);
+    // Define the number of bins
+    const auto nBins = 3u;
 
-    // Reconstruct the original matrix from its eigenvalues and eigenvectors
-    const auto reconstructedMatrix = ubsmear::UBMatrixHelper::GetMatrixFromEigenDecomposition(eigenvalues, eigenvectorMatrix);
+    // Define a smearing matrix
+    // Here we multiply two matricies, one whose columns normalise to one which describes the smearing of selected signal events, and a
+    // second diagonal matirx which describes the selection efficiency in each true bin.
+    const auto smearingMatrix = (
 
-    // Get the difference between the input and the reconstructed matrix
-    const auto differenceMatrix = reconstructedMatrix - matrix;
+        // Smearing of selected signal events
+        UBMatrix({
+            {7, 1, 1},
+            {3, 6, 1},
+            {1, 2, 4}
+        }).GetColumnNormalized() *
 
-    std::cout << "Input matrix" << std::endl;
-    matrix.Print();
+        // Selection efficiency
+        UBMatrixHelper::GetDiagonalMatrix(UBMatrix( {0.6, 0.5, 0.4}, nBins, 1))
+    );
 
-    std::cout << "Eigenvalues" << std::endl;
-    eigenvalues.Print();
+    std::cout << "Smearing matrix" << std::endl;
+    smearingMatrix.Print();
 
-    std::cout << "Eigenvector matrix" << std::endl;
-    eigenvectorMatrix.Print();
+    // Define the covariance matrix for the flattened smearing matrix
+    // To this, let's first define a fractional covariance matrix, by some supplying partial eigenvalues and eigenvectors
+    const auto fractionalSmearingCovarianceMatrix = UBMatrixHelper::GetMatrixFromPartialEigenDecomposition(
 
-    std::cout << "Reconstructed matrix" << std::endl;
-    reconstructedMatrix.Print();
+        // The eigenvalues of the fractional smearing-covariance matrix
+        UBMatrix( {0.2, 0.15, 0.1 }, 3, 1 ),
 
-    std::cout << "Difference matrix" << std::endl;
-    differenceMatrix.Print();
+        // The eigenvectors of
+        UBMatrix({
+            {12, 1, 0,   3, 0,  0,   2, 0, 0 },
+            {0,  1, 0,   1, 11, 0,   0, 1, 0 },
+            {0,  0, 2,   0, 0,  3,   1, 0, 10}
+        }).GetRowNormalized().GetTranspose()
+    );
+
+    // Now build the full covariance matrix from the fractional one
+    const auto flattenedSmearingMatrix = UBSmearingHelper::Flatten(smearingMatrix);
+    std::vector<float> smearingCovarianceMatrixElements;
+    for (size_t iRow = 0; iRow < nBins*nBins; ++iRow)
+    {
+        for (size_t iCol = 0; iCol < nBins*nBins; ++iCol)
+        {
+            const auto entry = flattenedSmearingMatrix.At(iRow, 0) * flattenedSmearingMatrix.At(iCol, 0) * fractionalSmearingCovarianceMatrix.At(iRow, iCol);
+            smearingCovarianceMatrixElements.push_back(entry);
+        }
+    }
+
+    const UBMatrix smearingCovarianceMatrix(smearingCovarianceMatrixElements, nBins*nBins, nBins*nBins);
+
+    std::cout << "Smearing covariance matrix" << std::endl;
+    smearingCovarianceMatrix.Print();
+
+    // Let's define the true underlying cross-section as a column vector
+    const auto truth = UBMatrix( {1, 5, 2}, nBins, 1);
+    std::cout << "True cross-section" << std::endl;
+    truth.Print();
+
+    // Now smear the truth to get our dummy "data"
+    const auto data = UBSmearingHelper::Smear(truth, smearingMatrix);
+    std::cout << "Measured data" << std::endl;
+    data.Print();
+
+    // Now make a prediction for the true underlying cross-section
+    const auto prediction = UBMatrix( {1.3, 4.6, 1.5}, nBins, 1);
+    std::cout << "Predicted cross-section" << std::endl;
+    prediction.Print();
+
+    // And put some uncertainty on the prediction - here we just use a diagonal matrix, with the 10% of the prediction itself as the variance
+    const auto predictionCovarianceMatrix = UBMatrixHelper::GetDiagonalMatrix(0.1f * prediction);
+    std::cout << "Predicted cross-section covariance matrix" << std::endl;
+    predictionCovarianceMatrix.Print();
+
+    // Smear the prediction to be able to compare it to the data and get it's covariance matrix
+    const auto nUniverses = 100000u;
+    const auto precision = 1e-7f;
+    const auto &[smearedPrediction, smearedPredictionCovariance] = UBSmearingHelper::Smear(prediction, predictionCovarianceMatrix, smearingMatrix, smearingCovarianceMatrix, nUniverses, precision);
+
+    std::cout << "Smeared prediction" << std::endl;
+    smearedPrediction.Print();
+
+    std::cout << "Smeared prediction covariance matrix" << std::endl;
+    smearedPredictionCovariance.Print();
+
 
     return 0;
 }

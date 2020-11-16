@@ -71,6 +71,20 @@ class UBMatrix
         UBMatrix GetTranspose() const;
 
         /**
+        * @brief Get a copy of this matrix where the rows are normalized to one
+        *
+        * @return the row normalized matrix
+        */
+        UBMatrix GetRowNormalized() const;
+
+        /**
+        * @brief Get a copy of this matrix where the columns are normalized to one
+        *
+        * @return the column-normalized matrix
+        */
+        UBMatrix GetColumnNormalized() const;
+
+        /**
         * @brief Set the matrix element at the supplied row and column
         *
         * @param rowIndex the input row index
@@ -108,6 +122,26 @@ class UBMatrix
         * @return the result of the matrix multiplcation matrixL * matrixR
         */
         friend UBMatrix operator*(const UBMatrix &matrixL, const UBMatrix &matrixR);
+
+        /**
+        * @brief Overloaded * operator for right multiplication by a scalar
+        *
+        * @param matrix the matrix
+        * @param scalar the scalar
+        *
+        * @return the result of the multiplcation matrix * scalar
+        */
+        friend UBMatrix operator*(const UBMatrix &matrix, const float scalar);
+
+        /**
+        * @brief Overloaded * operator for left multiplication by a scalar
+        *
+        * @param scalar the scalar
+        * @param matrix the matrix
+        *
+        * @return the result of the multiplcation scalar * matrix
+        */
+        friend UBMatrix operator*(const float scalar, const UBMatrix &matrix);
 
     private:
 
@@ -241,7 +275,7 @@ inline UBMatrix UBMatrix::GetTranspose() const
 {
     // Get the elements of the transpose matrix
     std::vector<float> elementsT;
-    for (unsigned int i = 0; i < m_elements.size(); ++i)
+    for (size_t i = 0; i < m_elements.size(); ++i)
     {
         // Get the row & column index corresponding to i for the *transpose* matrix
         const auto iRowT = i / m_nRows;
@@ -253,6 +287,43 @@ inline UBMatrix UBMatrix::GetTranspose() const
 
     // Construct the transpose matrix
     return UBMatrix(elementsT, m_nCols, m_nRows);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix UBMatrix::GetRowNormalized() const
+{
+    std::vector<float> elements;
+
+    for (size_t iRow = 0; iRow < m_nRows; ++iRow)
+    {
+        // Get the sum of the elements in this row
+        float rowSum = 0.f;
+        for (size_t iCol = 0; iCol < m_nCols; ++iCol)
+        {
+            rowSum += this->At(iRow, iCol);
+        }
+
+        if (std::abs(rowSum) <= std::numeric_limits<float>::epsilon())
+            throw std::logic_error("UBMatrix::GetRowNormalized - Found a row which sums to zero, can't normalize it");
+
+        // Normalize the elements in the row
+        const auto norm = 1.f / rowSum;
+        for (size_t iCol = 0; iCol < m_nCols; ++iCol)
+        {
+            elements.push_back(this->At(iRow, iCol) * norm);
+        }
+    }
+
+    return UBMatrix(elements, m_nRows, m_nCols);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix UBMatrix::GetColumnNormalized() const
+{
+    // Transpose the matrix, normalize it by row, then transpose it back
+    return this->GetTranspose().GetRowNormalized().GetTranspose();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -351,6 +422,28 @@ inline UBMatrix operator*(const UBMatrix &matrixL, const UBMatrix &matrixR)
 
     // Construct a new matrix with the added elements
     return UBMatrix(newElements);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix operator*(const UBMatrix &matrix, const float scalar)
+{
+    // Make a new vector to hold the elements
+    std::vector<float> newElements;
+    for (size_t i = 0; i < matrix.m_elements.size(); ++i)
+    {
+        newElements.push_back(matrix.m_elements.at(i) * scalar);
+    }
+
+    // Construct a new matrix with the added elements
+    return UBMatrix(newElements, matrix.m_nRows, matrix.m_nCols);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix operator*(const float scalar, const UBMatrix &matrix)
+{
+    return matrix * scalar;
 }
 
 } // namespace ubsmear

@@ -5,6 +5,7 @@
 
 #include "ubsmear/Helpers/UBFileHelper.h"
 #include "ubsmear/Helpers/UBMatrixHelper.h"
+#include "ubsmear/Helpers/UBSmearingHelper.h"
 
 namespace ubsmear
 {
