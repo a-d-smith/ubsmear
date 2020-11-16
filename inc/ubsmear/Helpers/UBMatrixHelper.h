@@ -36,6 +36,15 @@ class UBMatrixHelper
         static UBMatrix GetUnitMatrix(const size_t size);
 
         /**
+        * @brief Get a diagonal matrix (all off-diagonals are zero) with diagonal entries given by the elements of the input column vector
+        *
+        * @param columnVector the input column vector which defines the diagonals of the output matrix
+        *
+        * @return the diagonal matrix
+        */
+        static UBMatrix GetDiagonalMatrix(const UBMatrix &columnVector);
+
+        /**
         * @brief Get a (square) Givens rotation matrix of the specified size, which acts to rotate by a specified angle in the plane
                  corresponding to the specified row and column indices
         *
@@ -57,7 +66,17 @@ class UBMatrixHelper
         *
         * @return a pair, first is the column vector of eigenvalues, second is the matrix of eigenvectors
         */
-        static std::pair<UBMatrix, UBMatrix> GetEigenvectorMatrix(const UBMatrix &matrix, const float precision);
+        static std::pair<UBMatrix, UBMatrix> GetEigenDecomposition(const UBMatrix &matrix, const float precision);
+
+        /**
+        * @brief Reconstruct a real symmetric matrix from it's eigenvectors and eigenvalues.
+        *
+        * @param eigenvalues the input column vector of eigenvalues
+        * @param eigenvectorMatrix the input matrix whose columns are the eigenvectors
+        *
+        * @return the real symmetric matrix which has the supplied eigenvalues and eigenvectors
+        */
+        static UBMatrix GetMatrixFromEigenDecomposition(const UBMatrix &eigenvalues, const UBMatrix &eigenvectorMatrix);
 
         /**
         * @brief Check if the input matrix is square
@@ -126,6 +145,27 @@ inline UBMatrix UBMatrixHelper::GetUnitMatrix(const size_t size)
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
+inline UBMatrix UBMatrixHelper::GetDiagonalMatrix(const UBMatrix &columnVector)
+{
+    // Check that the input matrix is really a column vector
+    if (columnVector.GetColumns() != 1u)
+        throw std::invalid_argument("UBMatrixHelper::GetDiagonalMatrix - Input matrix has more than one column, it should be a column vector");
+
+    // Get the size of the output matrix
+    const auto size = columnVector.GetRows();
+
+    // Get a zero matrix
+    auto matrix = UBMatrixHelper::GetZeroMatrix(size, size);
+
+    // Set the diagonals
+    for (size_t i = 0; i < size; ++i)
+        matrix.SetElement(i, i, columnVector.At(i, 0));
+
+    return matrix;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
 inline UBMatrix UBMatrixHelper::GetGivensRotationMatrix(const size_t size, const size_t rowIndex, const size_t columnIndex, const float angle)
 {
     // Check that the supplied row & column indices are not out of bounds
@@ -153,7 +193,7 @@ inline UBMatrix UBMatrixHelper::GetGivensRotationMatrix(const size_t size, const
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-inline std::pair<UBMatrix, UBMatrix> UBMatrixHelper::GetEigenvectorMatrix(const UBMatrix &matrix, const float precision)
+inline std::pair<UBMatrix, UBMatrix> UBMatrixHelper::GetEigenDecomposition(const UBMatrix &matrix, const float precision)
 {
     // Here we implement the Jacobi eigenvalue algorithm. A summary of this algorithm is described below.
     //
@@ -200,7 +240,7 @@ inline std::pair<UBMatrix, UBMatrix> UBMatrixHelper::GetEigenvectorMatrix(const 
 
     // Insist that the input matrix is symmetric
     if (!UBMatrixHelper::IsSymmetric(matrix))
-        throw std::invalid_argument("UBMatrixHelper::GetEigenvectorMatrix - Input matrix isn't symmetric");
+        throw std::invalid_argument("UBMatrixHelper::GetEigenDecomposition - Input matrix isn't symmetric");
 
     // Get the size of the matrix (it is square)
     const auto size = matrix.GetRows();
@@ -305,7 +345,7 @@ inline std::pair<UBMatrix, UBMatrix> UBMatrixHelper::GetEigenvectorMatrix(const 
         }
 
         if (norm2 <= std::numeric_limits<float>::epsilon())
-            throw std::logic_error("UBMatrixHelper::GetEigenvectorMatrix - Found an eigenvector with invalid norm");
+            throw std::logic_error("UBMatrixHelper::GetEigenDecomposition - Found an eigenvector with invalid norm");
 
         const auto norm = std::pow(norm2, 0.5f) * sign;
 
@@ -322,6 +362,30 @@ inline std::pair<UBMatrix, UBMatrix> UBMatrixHelper::GetEigenvectorMatrix(const 
         { eigenvalues, size, 1 },
         UBMatrix(eigenvectorMatrixElements, size, size).GetTranspose()
     );
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix UBMatrixHelper::GetMatrixFromEigenDecomposition(const UBMatrix &eigenvalues, const UBMatrix &eigenvectorMatrix)
+{
+    // Check that the input matrices have consistent dimensions
+    if (eigenvalues.GetColumns() != 1u)
+        throw std::invalid_argument("UBMatrixHelper::GetMatrixFromEigenDecomposition - input eigenvalues is not a column vector");
+
+    const auto size = eigenvalues.GetRows();
+    if (eigenvectorMatrix.GetRows() != size)
+        throw std::invalid_argument("UBMatrixHelper::GetMatrixFromEigenDecomposition - the number of rows of the input eigenvector matrix, doesn't match the number of supplied eigenvalues");
+
+    if (eigenvectorMatrix.GetColumns() != size)
+        throw std::invalid_argument("UBMatrixHelper::GetMatrixFromEigenDecomposition - the number of columns of the input eigenvector matrix, doesn't match the number of supplied eigenvalues");
+
+    // Get the diagonal matrix with the eigenvalues along the diagonal
+    const auto eigenvalueMatrix = ubsmear::UBMatrixHelper::GetDiagonalMatrix(eigenvalues);
+
+    // Perform the transformation
+    // ATTN here we are assuming that the output matrix is real and symmetric, and hence the inverse of the matrix of eigenvectors is given
+    // by it's transpose. This is not true for a general matrix.
+    return (eigenvectorMatrix * eigenvalueMatrix * eigenvectorMatrix.GetTranspose());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
