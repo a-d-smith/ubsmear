@@ -15,12 +15,14 @@ git clone https://github.com/a-d-smith/ubsmear.git
 ## How to compile the example
 
 ```
-# To compile the example...
+# Clone this repo
+git clone https://github.com/a-d-smith/ubsmear.git
+
 # Go to the ubsmear directory
 cd ubsmear
 
 # Set the UBSMEAR_DIR environment variable to point to your clone of the repo
-export UBSMEAR_DIR=`readlink -f .`
+export UBSMEAR_DIR=`pwd`
 
 # Go to the example directory, and compile the test code
 cd example

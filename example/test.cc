@@ -12,6 +12,11 @@ int main()
     // Define the number of bins
     const auto nBins = 3u;
 
+    // Setup a metadata object, here we take the first bin to be an underflow
+    const auto hasUnderflow = true;
+    const auto hasOverflow = false;
+    const auto metadata = UBXSecMeta(nBins, hasUnderflow, hasOverflow);
+
     // Define a smearing matrix
     // Here we multiply two matricies, one whose columns normalise to one which describes the smearing of selected signal events, and a
     // second diagonal matirx which describes the selection efficiency in each true bin.
@@ -68,8 +73,8 @@ int main()
     std::cout << "True cross-section" << std::endl;
     truth.Print();
 
-    // Now smear the truth to get our dummy "data"
-    const auto data = UBSmearingHelper::Smear(truth, smearingMatrix);
+    // Now smear the truth and trim any underflow/overflow bins to get our dummy "data"
+    const auto data = UBSmearingHelper::TrimUnderOverflowBins(UBSmearingHelper::Smear(truth, smearingMatrix), metadata);
     std::cout << "Measured data" << std::endl;
     data.Print();
 
@@ -94,6 +99,15 @@ int main()
     std::cout << "Smeared prediction covariance matrix" << std::endl;
     smearedPredictionCovariance.Print();
 
+    // Trim underflow & overflow bins from the smeared prediction so it can be compared to the data
+    const auto trimmedSmearedPrediction = UBSmearingHelper::TrimUnderOverflowBins(smearedPrediction, metadata);
+    const auto trimmedSmearedPredictionCovariance = UBSmearingHelper::TrimUnderOverflowBins(smearedPredictionCovariance, metadata);
+
+    std::cout << "Trimmed smeared prediction" << std::endl;
+    trimmedSmearedPrediction.Print();
+
+    std::cout << "Trimmed smeared prediction covariance matrix" << std::endl;
+    trimmedSmearedPredictionCovariance.Print();
 
     return 0;
 }

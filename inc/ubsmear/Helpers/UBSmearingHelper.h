@@ -84,6 +84,16 @@ class UBSmearingHelper
         */
         static std::pair<UBMatrix, UBMatrix> Smear(const UBMatrix &prediction, const UBMatrix &predictionCovarianceMatrix, const UBMatrix &smearingMatrix, const UBMatrix &smearingCovarianceMatrix, const size_t nUniverses, const float precision);
 
+        /**
+        * @brief Trim underflow and overflow bins from the input matrix
+        *
+        * @param matrix the input matrix, can either be a square matrix or a column vector with the number of bins given in the metadata
+        * @param metadata the input metadata, which contains information about the binning
+        *
+        * @return the trimmed matrix
+        */
+        static UBMatrix TrimUnderOverflowBins(const UBMatrix &matrix, const UBXSecMeta &metadata);
+
     private:
 
         static std::default_random_engine m_generator; ///< The random number generator
@@ -329,6 +339,59 @@ inline std::pair<UBMatrix, UBMatrix> UBSmearingHelper::Smear(const UBMatrix &pre
     }
 
     return {smearedPrediction, smearedPredictionCovarianceMatrix};
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix UBSmearingHelper::TrimUnderOverflowBins(const UBMatrix &matrix, const UBXSecMeta &metadata)
+{
+    const auto nBins = metadata.GetNBins();
+
+    // Check the input matrix has the correct dimensions
+    if (matrix.GetRows() != nBins)
+        throw std::invalid_argument("UBSmearingHelper::TrimUnderOverflowBins - the number of rows of the matrix doesn't match the supplied number of bins");
+
+    // Check if the input matrix is a column vector, if not then insist that it is square
+    const auto isColumnVector = (matrix.GetColumns() == 1u);
+
+    if (!isColumnVector && matrix.GetColumns() != nBins)
+        throw std::invalid_argument("UBSmearingHelper::TrimUnderOverflowBins - the number of columns of the matrix doesn't match the supplied number of bins");
+
+    // If the metadata doesn't prescribe an underflow or overflow bin, then no trimming is required
+    if (!metadata.HasUnderflow() && !metadata.HasOverflow())
+        return matrix;
+
+    // Otherwise, extract the relevant elements from the input matrix
+    std::vector< std::vector<float> > elements;
+    for (size_t iRow = 0; iRow < nBins; ++iRow)
+    {
+        // Skip underflow and overflow rows
+        if (metadata.IsUnderOverflowBin(iRow))
+            continue;
+
+        // Add a new row to the output matrix elements
+        elements.emplace_back();
+        auto &row = elements.back();
+
+        // Handle case where input matrix is a column vector
+        if (isColumnVector)
+        {
+            row.emplace_back(matrix.At(iRow, 0));
+            continue;
+        }
+
+        // Handle case where input matrix is square
+        for (size_t iCol = 0; iCol < nBins; ++iCol)
+        {
+            // Skip underflow and overflow columns
+            if (metadata.IsUnderOverflowBin(iCol))
+                continue;
+
+            row.emplace_back(matrix.At(iRow, iCol));
+        }
+    }
+
+    return UBMatrix(elements);
 }
 
 } // namespace ubsmear

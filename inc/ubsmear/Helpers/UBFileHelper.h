@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <cctype>
 
 namespace ubsmear
 {
@@ -42,9 +43,15 @@ class UBFileHelper
         * @param data the output matrix data
         */
         static void ReadMatrixData(const std::string &fileName, std::vector< std::vector<float> > &data);
+
+        static std::string m_whitespace; ///< The characters to consider as whitespace
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline std::string UBFileHelper::m_whitespace = " \f\n\r\t\v"; // Space, form feed (f), line feed (n), carriage return (r), horizontal tab (t), vertical tab (v)
+
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 inline UBMatrix UBFileHelper::ReadMatrix(const std::string &fileName)
@@ -107,8 +114,23 @@ inline void UBFileHelper::ReadMatrixData(const std::string &fileName, std::vecto
 
     // Read the file line-by-line
     std::string line;
+    size_t lineNumber = 0;
     while (std::getline(file, line))
     {
+        lineNumber++;
+
+        // Trim the line of any preceeding or trailing whitespace
+        line.erase(0, line.find_first_not_of(m_whitespace));
+        line.erase(line.find_last_not_of(m_whitespace) + 1);
+
+        // Skip empty lines
+        if (line.empty())
+            continue;
+
+        // Skip comment lines (starting with #)
+        if (line.front() == '#')
+            continue;
+
         // Add a new row to the values
         data.emplace_back();
         auto &row = data.back();
@@ -122,8 +144,12 @@ inline void UBFileHelper::ReadMatrixData(const std::string &fileName, std::vecto
 
             if (stream.fail() || stream.bad())
             {
-                throw std::runtime_error("UBFileHelper::ReadMatrixData - Problem reading line " + std::to_string(data.size()) + " of \"" +
-                    fileName + "\". It must contain only floating point numbers and whitespace.");
+                // Clear any data that's currently been read
+                data.clear();
+
+                throw std::runtime_error("UBFileHelper::ReadMatrixData - Problem reading line " + std::to_string(lineNumber) + " of \"" +
+                    fileName + "\". It must contain only floating point numbers and whitespace. "
+                    + "Comments lines begin with # as the first character.");
             }
 
             row.push_back(value);

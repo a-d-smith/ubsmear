@@ -10,7 +10,6 @@
 namespace ubsmear
 {
 
-
 } // namespace ubsmear
 
 #endif
