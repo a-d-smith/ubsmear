@@ -64,13 +64,23 @@ int main()
     const auto nUniverses = 10000u;
 
     // Define the precision to use when calculating eigenvalues and eigenvectors of a covariance matrix
-    const auto precision = 1e-9f;
+    const auto precision = std::numeric_limits<float>::epsilon();
 
     // Run the forward folding
     const auto &[smearedPrediction, smearedPredictionCovarianceMatrix] = ForwardFold(metadata,                                  // The binning information
                                                                                      prediction, predictionCovarianceMatrix,    // The input prediction
                                                                                      smearingMatrix, smearingCovarianceMatrix,  // The smearing matrix
                                                                                      nUniverses, precision);                    // Configuration options
+
+    // -------------------------------------------------------------------------------------------------------------------------------------
+    // Print the smeared prediction
+    // -------------------------------------------------------------------------------------------------------------------------------------
+
+    std::cout << "Smeared prediction (reco-space):" << std::endl;
+    smearedPrediction.Print();
+
+    std::cout << "Smeared prediction covariance matrix" << std::endl;
+    smearedPredictionCovarianceMatrix.Print();
 
     // -------------------------------------------------------------------------------------------------------------------------------------
     // Calculate the chi2 test statistic between the smeared prediction and the data
@@ -80,17 +90,15 @@ int main()
                                                    data, dataCovarianceMatrix,                            // The data
                                                    precision);                                            // Configuration options
 
-    // -------------------------------------------------------------------------------------------------------------------------------------
-    // Print the result
-    // -------------------------------------------------------------------------------------------------------------------------------------
+    // For interest get the p-value from the chi2 - although better to just use a lookup table
+    const auto pValue = UBStatisticsHelper::GetPValue(chi2, degreesOfFreedom, precision);
 
-    std::cout << "Smeared prediction (reco-space):" << std::endl;
-    smearedPrediction.Print();
-
-    std::cout << "Smeared prediction covariance matrix" << std::endl;
-    smearedPredictionCovarianceMatrix.Print();
+    // -------------------------------------------------------------------------------------------------------------------------------------
+    // Print the test statistic
+    // -------------------------------------------------------------------------------------------------------------------------------------
 
     std::cout << "Chi2 / dof = " << chi2 << " / " << degreesOfFreedom << " = " << (chi2 / degreesOfFreedom) << std::endl;
+    std::cout << "p-value = " << pValue << std::endl;
 
     return 0;
 }

@@ -6,6 +6,7 @@
 #include "ubsmear/Helpers/UBMatrixHelper.h"
 
 #include <stdexcept>
+#include <cmath>
 
 namespace ubsmear
 {
@@ -28,6 +29,17 @@ class UBStatisticsHelper
         * @return a pair, first is the chi2, second is the number of degrees of freedom
         */
         static std::pair<float, size_t> GetChi2(const UBMatrix &smearedPrediction, const UBMatrix &data, const UBMatrix &covarianceMatrix, const float precision);
+
+        /**
+        * @brief Get the p-value from an input chi2 test statistic. The p-value is the probability of observing a test statistic at least as unlikely as the one supplied
+        *
+        * @param chi2 the input test statistic that follows a chi2 distribution
+        * @param degreesOfFreedom the number of degrees of freedom of the chi2 distribution
+        * @param precision the fractional error allowed on the returned p-value
+        *
+        * @return the p-value
+        */
+        static float GetPValue(const float chi2, const size_t degreesOfFreedom, const float precision);
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -48,7 +60,7 @@ inline std::pair<float, size_t> UBStatisticsHelper::GetChi2(const UBMatrix &smea
         throw std::invalid_argument("UBStatisticsHelper::GetChi2 - input data has a different number of bins to the input smeared prediction");
 
     if (covarianceMatrix.GetRows() != nBins || covarianceMatrix.GetColumns() != nBins)
-        throw std::invalid_argument("UBStatisticsHelper::GetChi2 - dimensions of the input covariance matrix, doesn't matrch the input data or smeared prediction");
+        throw std::invalid_argument("UBStatisticsHelper::GetChi2 - dimensions of the input covariance matrix, doesn't match the input data or smeared prediction");
 
     // Insist that the covariance matrix is symmetric
     if (!UBMatrixHelper::IsSymmetric(covarianceMatrix))
@@ -87,7 +99,7 @@ inline std::pair<float, size_t> UBStatisticsHelper::GetChi2(const UBMatrix &smea
 
         // Check that we don't have a negative eigenvalue - this should never happen for a true covariance matrix
         if (variance < 0.f)
-            throw std::logic_error("UBStatisticsHelper::GetChi2 - input covariance matrix has negative eigenvalue");
+            throw std::logic_error("UBStatisticsHelper::GetChi2 - input covariance matrix has negative eigenvalue: " + std::to_string(variance));
 
         // Add to the total chi2 and increase the number of degrees of freedom
         const auto diff = diffEigen.At(iBin, 0);
@@ -96,6 +108,61 @@ inline std::pair<float, size_t> UBStatisticsHelper::GetChi2(const UBMatrix &smea
     }
 
     return {chi2, dof};
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline float UBStatisticsHelper::GetPValue(const float chi2, const size_t degreesOfFreedom, const float precision)
+{
+    if (precision < std::numeric_limits<float>::epsilon())
+        throw std::invalid_argument("UBStatisticsHelper::GetPValue - input precision is <= 0, it should be 0 -> 1 not inclusive");
+
+    if (precision >= 1.f)
+        throw std::invalid_argument("UBStatisticsHelper::GetPValue - input precision is >= 1, it should be 0 -> 1 not inclusive");
+
+    // The cumulative distribution function of the chi2 distribution with k degrees of freedom is given by:
+    //
+    // F(x; k) = g(k/2, x/2) / G(k/2)
+    //  - g is the lower incomplete gamma function
+    //  - G is the gamma function
+    //
+    // This gives the probability of a test statistic of x or less, to get the p-value we need 1 - F(x; k).
+
+    // Without any extra dependencies, C++ includes the gamma function from cmath. However, the lower incomplete gamma function isn't
+    // supplied. Here we use a power-series expansion of F(x; k):
+    //
+    // F(x; k) = (x/2)^(k/2) * exp(-x/2) * sum_r^inf [ (x/2)^r / G(k/2 + r + 1) ]
+    //
+    // This equation is simplified by the substitution y = x/2, s = k/2
+
+    const auto y = chi2 / 2.f;
+    const auto s = static_cast<float>(degreesOfFreedom) / 2.f;
+
+    // Get the multiplictative factor that's outside of the sum
+    const auto factor = std::pow(y, s) * std::exp(-y);
+
+    // Define the function for the term that gets summed
+    const auto term = [&](const size_t r)
+    {
+        return std::pow(y, static_cast<float>(r)) / std::tgamma(s + r + 1);
+    };
+
+    // Do the sum until the value is equal to the last iteration within the precision specified
+    float sum = 0.f;
+    float lastSum = 0.f;
+    size_t r = 0;
+
+    do
+    {
+        lastSum = sum;
+        sum += term(r++);
+    }
+    while ( std::abs(sum - lastSum) > precision * sum );
+
+    // Calculate the p-value
+    const auto pValue = 1.f - (factor * sum);
+
+    return pValue;
 }
 
 } // namespace ubsmear
