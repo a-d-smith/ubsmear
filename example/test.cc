@@ -6,6 +6,9 @@ using namespace ubsmear;
 
 int main()
 {
+    const auto fileMatrix = UBFileHelper::ReadMatrix("testMatrix.txt");
+    fileMatrix.Print();
+
     // Define some dummy data
     // The numbers here are really just make up to test the functionality of the code - but they are chosen to be semi-realistic
 
@@ -78,8 +81,16 @@ int main()
     std::cout << "Measured data" << std::endl;
     data.Print();
 
+    // Define a covariance matrix for the data
+    const auto dataCovariance = UBMatrixHelper::GetMatrixFromEigenDecomposition(
+        UBMatrix( {0.4, 0.2}, 2, 1),                            // Eigenvalues
+        UBMatrixHelper::GetGivensRotationMatrix(2, 0, 1, 0.1f)  // Eigenvectors
+    );
+    std::cout << "Measured data covariance matrix" << std::endl;
+    dataCovariance.Print();
+
     // Now make a prediction for the true underlying cross-section
-    const auto prediction = UBMatrix( {1.3, 4.6, 1.5}, nBins, 1);
+    const auto prediction = UBMatrix( {2, 10, 4}, nBins, 1);
     std::cout << "Predicted cross-section" << std::endl;
     prediction.Print();
 
@@ -108,6 +119,15 @@ int main()
 
     std::cout << "Trimmed smeared prediction covariance matrix" << std::endl;
     trimmedSmearedPredictionCovariance.Print();
+
+    // Get the combined covariance matrix for the smeared prediction and the data
+    const auto totalCovariance = trimmedSmearedPredictionCovariance + dataCovariance;
+    std::cout << "Total covariance matrix" << std::endl;
+    totalCovariance.Print();
+
+    // Get the chi2 test statistic for this prediction
+    const auto &[chi2, degreesOfFreedom] = UBStatisticsHelper::GetChi2(trimmedSmearedPrediction, data, totalCovariance, precision);
+    std::cout << "Chi2 / dof: " << chi2 << " / " << degreesOfFreedom << " = " << (chi2 / degreesOfFreedom) << std::endl;
 
     return 0;
 }

@@ -79,12 +79,12 @@ class UBMatrixHelper
         static UBMatrix GetMatrixFromEigenDecomposition(const UBMatrix &eigenvalues, const UBMatrix &eigenvectorMatrix);
 
         /**
-        * @brief Reconstruct a real symmetrix matrix from a partial set of it's eigenvectors and eigenvalues.
+        * @brief Reconstruct a real symmetric matrix from a partial set of it's eigenvectors and eigenvalues.
         *
         * @param eigenvalues the input column vectors of L eigenvalues
         * @param eigenvectorMatrix the input (N x L) matrix of eigenvectors, whose columns correspond the eigenvectors
         *
-        * @return the (N x N) real symmetrix matrix which has the supplied eigenvalues and eigenvectors
+        * @return the (N x N) real symmetric matrix which has the supplied eigenvalues and eigenvectors
         */
         static UBMatrix GetMatrixFromPartialEigenDecomposition(const UBMatrix &eigenvalues, const UBMatrix &eigenvectorMatrix);
 
@@ -98,7 +98,7 @@ class UBMatrixHelper
         static bool IsSquare(const UBMatrix &matrix);
 
         /**
-        * @brief Check if the input matrix is symmetrix
+        * @brief Check if the input matrix is symmetric
         *
         * @param matrix the input matrix
         *
@@ -184,6 +184,9 @@ inline UBMatrix UBMatrixHelper::GetGivensRotationMatrix(const size_t size, const
 
     if (columnIndex >= size)
         throw std::out_of_range("UBMatrixHelper::GetGivensRotationMatrix - supplied column index is larger than the supplied matrix size");
+
+    if (rowIndex == columnIndex)
+        throw std::invalid_argument("UBMatrixHelper::GetGivensRotationMatrix - supplied row and column indices are equal");
 
     // Get a unit matrix
     auto matrix = UBMatrixHelper::GetUnitMatrix(size);
