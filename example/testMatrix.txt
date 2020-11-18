@@ -1,5 +1,0 @@
-# An input matrix is supplied in a plain text file as numbers delimited by whitespace
-
-1  0  1
-0  1  0
-0  0  1

@@ -46,7 +46,7 @@ class UBSmearingHelper
         *
         * @return the ouput vector of standard deviations
         */
-        static UBMatrix GetStandardDevationVector(const UBMatrix &eigenvalues);
+        static UBMatrix GetStandardDeviationVector(const UBMatrix &eigenvalues);
 
         /**
         * @brief Generate a random vector drawn from a multivariate Gaussian distribution (defined by a covariance matrix and a mean vector)
@@ -93,6 +93,15 @@ class UBSmearingHelper
         * @return the trimmed matrix
         */
         static UBMatrix TrimUnderOverflowBins(const UBMatrix &matrix, const UBXSecMeta &metadata);
+
+        /**
+        * @brief Get a copy of the input vector with any negative values replace with zero
+        *
+        * @param vector the input vector
+        *
+        * @return the output positive semidefinite vector
+        */
+        static UBMatrix GetPositiveSemidefiniteVector(const UBMatrix &vector);
 
     private:
 
@@ -166,11 +175,11 @@ inline UBMatrix UBSmearingHelper::Unflatten(const UBMatrix &flattenedMatrix)
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-inline UBMatrix UBSmearingHelper::GetStandardDevationVector(const UBMatrix &eigenvalues)
+inline UBMatrix UBSmearingHelper::GetStandardDeviationVector(const UBMatrix &eigenvalues)
 {
     // Check that the input object is a column vector
     if (eigenvalues.GetColumns() != 1u)
-        throw std::invalid_argument("UBSmearingHelper::GetStandardDevationVector - input eigenvalues is not a column vector");
+        throw std::invalid_argument("UBSmearingHelper::GetStandardDeviationVector - input eigenvalues is not a column vector");
 
     const auto size = eigenvalues.GetRows();
 
@@ -188,7 +197,7 @@ inline UBMatrix UBSmearingHelper::GetStandardDevationVector(const UBMatrix &eige
 
         // Insist all eigenvalues are non-negative
         if (eigenvalue < 0.f)
-            throw std::invalid_argument("UBSmearingHelper::GetStandardDevationVector - found a negative input eigenvalue");
+            throw std::invalid_argument("UBSmearingHelper::GetStandardDeviationVector - found a negative input eigenvalue: " + std::to_string(eigenvalue));
 
         matrixElements.push_back(std::pow(eigenvalue, 0.5f));
     }
@@ -289,10 +298,15 @@ inline std::pair<UBMatrix, UBMatrix> UBSmearingHelper::Smear(const UBMatrix &pre
     // Get the eigenvalues and eigenvectors of the smearing covariance matrix
     const auto [eigenvaluesSmearing, eigenvectorMatrixSmearing] = UBMatrixHelper::GetEigenDecomposition(smearingCovarianceMatrix, precision);
 
+    // ATTN Because the eigenvalues we find are not exact, it's possible that some may be found to be a very small negative number when the
+    // true eigenvalue is zero. Here we manually clamp any negative values to be zero so that the eigenvalues are definitely non-negative
+    const auto eigenvaluesPredictionClamped = UBSmearingHelper::GetPositiveSemidefiniteVector(eigenvaluesPrediction);
+    const auto eigenvaluesSmearingClamped = UBSmearingHelper::GetPositiveSemidefiniteVector(eigenvaluesSmearing);
+
     // ATTN the eigenvalues of the covariance matrices give the variance of the distribution along the eigenvectors
     // Here we take their square root to obtain the standard devation
-    const auto stdVectorPrediction = UBSmearingHelper::GetStandardDevationVector(eigenvaluesPrediction);
-    const auto stdVectorSmearing = UBSmearingHelper::GetStandardDevationVector(eigenvaluesSmearing);
+    const auto stdVectorPrediction = UBSmearingHelper::GetStandardDeviationVector(eigenvaluesPredictionClamped);
+    const auto stdVectorSmearing = UBSmearingHelper::GetStandardDeviationVector(eigenvaluesSmearingClamped);
 
     // Get the flattened smearing matrix
     const auto flattenedSmearingMatrix = UBSmearingHelper::Flatten(smearingMatrix);
@@ -392,6 +406,27 @@ inline UBMatrix UBSmearingHelper::TrimUnderOverflowBins(const UBMatrix &matrix, 
     }
 
     return UBMatrix(elements);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+inline UBMatrix UBSmearingHelper::GetPositiveSemidefiniteVector(const UBMatrix &vector)
+{
+    if (vector.GetColumns() != 1u)
+        throw std::invalid_argument("UBSmearingHelper::GetPositiveSemidefiniteVector input object isn't a column vector");
+
+    const auto size = vector.GetRows();
+
+    std::vector<float> elements;
+    for (size_t iRow = 0; iRow < size; ++iRow)
+    {
+        const auto element = vector.At(iRow, 0);
+
+        // Only use positive elements, set all other elements to zero
+        elements.push_back(element > 0.f ? element : 0.f);
+    }
+
+    return UBMatrix(elements, size, 1);
 }
 
 } // namespace ubsmear

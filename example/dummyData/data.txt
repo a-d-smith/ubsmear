@@ -1,0 +1,8 @@
+# The forward-folded cross-section as measured in data
+
+# This is a fake 5-bin measurement (the units are arbitrary)
+# | 0     | 1     | 2     | 3     | 4     |
+    14.81   33.77   34.34   31.33   14.94
+
+# This is the "true cross-section" we smeared to make this dummy data - the prediction should be something close to this
+#    126.2   257.1   214.0   169.0   44.1     8.0

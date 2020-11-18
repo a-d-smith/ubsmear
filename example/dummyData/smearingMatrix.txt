@@ -1,0 +1,15 @@
+# The smearing matrix which maps from truth-space to reco-space
+#
+#   - The columns represent a bin in truth-space
+#   - The rows represent a bin reco-space
+#   - The sum of the entries in a column is the selection efficieny in that bin
+#
+
+# This matrix is for a fake 5-bin measurement with an overflow bin
+# | 0     | 1     | 2     | 3     | 4     | Overflow |
+    0.077   0.014   0.005   0.002   0.002   0.000
+    0.017   0.105   0.016   0.006   0.004   0.002
+    0.014   0.018   0.109   0.025   0.008   0.005
+    0.008   0.009   0.024   0.127   0.030   0.011
+    0.005   0.006   0.008   0.023   0.150   0.069
+    0.000   0.000   0.000   0.002   0.000   0.065
