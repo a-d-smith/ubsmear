@@ -37,7 +37,7 @@ class UBStatisticsHelper
         * @param degreesOfFreedom the number of degrees of freedom of the chi2 distribution
         * @param precision the fractional error allowed on the returned p-value
         *
-        * @return the p-value
+        * @return the p-value, or -float max if the p-value couldn't be found
         */
         static float GetPValue(const float chi2, const size_t degreesOfFreedom, const float precision);
 };
@@ -142,9 +142,10 @@ inline float UBStatisticsHelper::GetPValue(const float chi2, const size_t degree
     const auto factor = std::pow(y, s) * std::exp(-y);
 
     // Define the function for the term that gets summed
-    const auto term = [&](const size_t r)
+    const auto getTerm = [&](const size_t r)
     {
-        return std::pow(y, static_cast<float>(r)) / std::tgamma(s + r + 1);
+        // ATTN gamma function has no zeros
+        return (std::pow(y, static_cast<float>(r)) / std::tgamma(s + r + 1));
     };
 
     // Do the sum until the value is equal to the last iteration within the precision specified
@@ -154,8 +155,23 @@ inline float UBStatisticsHelper::GetPValue(const float chi2, const size_t degree
 
     do
     {
+        // If we have reached the maximum possible index, then there's no more that we can do
+        if (r == std::numeric_limits<size_t>::max())
+        {
+            std::cerr << "UBStatisticsHelper::GetPValue - WARNING, Unable to calculate p-value, reached maximum number of terms without converging to desired precision" << std::endl;
+            return -std::numeric_limits<float>::max();
+        }
+
         lastSum = sum;
-        sum += term(r++);
+        sum += getTerm(r++);
+
+        // Check we haven't reached the maximum possible number
+        if (!std::isnormal(sum))
+        {
+            std::cerr << "UBStatisticsHelper::GetPValue - WARNING, Unable to calculate p-value, sum is not converging fast enough" << std::endl;
+            return -std::numeric_limits<float>::max();
+        }
+
     }
     while ( std::abs(sum - lastSum) > precision * sum );
 
