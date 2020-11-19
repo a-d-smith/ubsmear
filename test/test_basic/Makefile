@@ -3,7 +3,7 @@
 CC = g++
 CFLAGS = -Wall -Wextra -Werror -Wno-sign-compare -Wshadow -Wdouble-promotion -std=c++17
 
-INCLUDES = -I$(UBSMEAR_DIR)/inc/
+INCLUDES = -I$(UBSMEAR_DIR)/inc/ -I$(UBSMEAR_DIR)/test/
 TARGET   = test
 
 $(TARGET): $(TARGET).cc
