@@ -64,6 +64,10 @@ inline UBXSecMeta::UBXSecMeta(const size_t nBins, const bool hasUnderflow, const
     m_hasUnderflow(hasUnderflow),
     m_hasOverflow(hasOverflow)
 {
+    // Check that we have more than just underflow / overflow bins
+    const auto nUnderOverflowBins = (hasUnderflow ? 1 : 0) + (hasOverflow ? 1 : 0);
+    if (nBins <= nUnderOverflowBins)
+        throw std::invalid_argument("UBXSecMeta::UBXSecMeta - invalid input parameters, there are no non-under/overflow bins");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------

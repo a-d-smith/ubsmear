@@ -21,11 +21,11 @@ cd $UBSMEAR_DIR/test/
 cd $UBSMEAR_DIR/test/
 mkdir test_example
 
-# Copy a Makefile from one of the other tests to your new directory, and modify it if you need
-cp test_basic/Makefile test_example/.
-
 # Make a new file called test.cc, which has an `int main()` method (or copy the basic test and edit that)
 cp test_basic/test.cc test_example/.
+
+# Write (or copy) a Makefile
+cp test_basic/Makefile test_example/.
 
 # If you used the above naming structure, it should be picked up when you execute ./runTests
 ```
