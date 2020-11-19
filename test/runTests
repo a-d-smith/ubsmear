@@ -1,0 +1,104 @@
+#!/bin/bash
+
+# ------------------------------------------------------------------------------------------------------------------------------------------
+# A bash executable to compile and run the tests
+# ------------------------------------------------------------------------------------------------------------------------------------------
+
+# Check if the UBSMEAR_DIR environment variable has been set
+if [[ -z "${UBSMEAR_DIR}" ]]; then
+    echo "ERROR: Environment variable UBSMEAR_DIR has not been set"
+    exit 1;
+fi
+
+# Check that the test directory is in the expected place
+export UBSMEAR_TEST_DIR=$UBSMEAR_DIR/test/
+if [ ! -d "${UBSMEAR_TEST_DIR}" ]; then
+    echo "ERROR: Can't access test directory: ${UBSMEAR_TEST_DIR}"
+    exit 1;
+fi
+
+# Loop over all of the test directories
+TEST_INDEX=0
+for TEST_DIR in $(readlink -f $UBSMEAR_TEST_DIR/test_*/ | sort); do
+
+    # Get the name of the test
+    TEST_BASENAME=$(basename $TEST_DIR)
+    TEST_NAME=${TEST_BASENAME#*_}
+
+    # Increment the test index
+    TEST_INDEX=$(( $TEST_INDEX + 1 ))
+
+    # Print a header
+    echo "--------------------------------------------------"
+    echo "Test ${TEST_INDEX} : $TEST_NAME"
+    echo "--------------------------------------------------"
+
+    # ------------------------------------------------------
+    # Compile the test
+    # ------------------------------------------------------
+    echo "[ COMPILING ]"
+
+    # Go to the test directory
+    if ! cd $TEST_DIR; then
+        echo "[ FAILURE ]"
+        echo "Unable to access test directory"
+        continue
+    fi
+
+    # Clean any existing build files
+    if ! make clean > compile.log 2> compile.err; then
+        echo "[ FAILURE ]"
+        echo "Unable to clean existing build files"
+        echo
+        echo "For more details see:"
+        echo ${TEST_DIR}/compile.log
+        echo ${TEST_DIR}/compile.err
+
+        continue
+    fi
+
+    # Compile the test
+    if ! make >> compile.log 2>> compile.err; then
+        echo "[ FAILURE ]"
+        echo "Unable to compile the test"
+        echo
+        echo "For more details see:"
+        echo ${TEST_DIR}/compile.log
+        echo ${TEST_DIR}/compile.err
+
+        continue
+    fi
+
+    # Check the executable was produced
+    if [ ! -f "test" ]; then
+        echo "[ FAILURE ]"
+        echo "Compilation completed without error, but no executable was produced"
+
+        continue
+    fi
+
+    # ------------------------------------------------------
+    # Run the test
+    # ------------------------------------------------------
+    echo "[ RUNNING ]"
+
+    # Run the test
+    ./test > run.log 2> run.err
+    EXIT_CODE=$?
+
+    if [ $EXIT_CODE -ne 0 ]; then
+        echo "[ FAILURE ]"
+        echo "Something went wrong while running the test"
+        echo "Exit code: $EXIT_CODE"
+        echo
+        echo "For more details see:"
+        echo ${TEST_DIR}/run.log
+        echo ${TEST_DIR}/run.err
+
+        continue
+    fi
+
+    # If we got here then the test worked
+    echo "[ PASSED ]"
+
+done

@@ -1,2 +1,6 @@
 example/test
 todo.md
+
+test/test_*/test
+test/test_*/*.log
+test/test_*/*.err
