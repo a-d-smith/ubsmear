@@ -10,7 +10,7 @@
 namespace ubsmear
 {
 
-/*
+/**
 * @brief A helper class for common tasks in linear algebra
 */
 class UBMatrixHelper

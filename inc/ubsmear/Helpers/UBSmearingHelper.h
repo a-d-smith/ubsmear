@@ -12,7 +12,7 @@
 namespace ubsmear
 {
 
-/*
+/**
 * @brief A helper class for smearing a predicted cross section so it can be compared to a data measurement
 */
 class UBSmearingHelper

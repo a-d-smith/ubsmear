@@ -11,7 +11,7 @@
 namespace ubsmear
 {
 
-/*
+/**
 * @brief A matrix class
 */
 class UBMatrix

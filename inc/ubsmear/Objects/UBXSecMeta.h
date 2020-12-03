@@ -4,7 +4,7 @@
 namespace ubsmear
 {
 
-/*
+/**
 * @brief A class to hold metadata about a 1D differential cross-section measurement
 */
 class UBXSecMeta
