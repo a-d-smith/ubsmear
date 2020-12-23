@@ -67,7 +67,7 @@ std::pair<float, size_t> GetChi2(const UBMatrix & smearedPrediction,
 std::pair<UBMatrix, UBMatrix> ForwardFold(const UBXSecMeta &metadata, const UBMatrix &prediction, const UBMatrix &predictionCovarianceMatrix, const UBMatrix &smearingMatrix, const UBMatrix &smearingCovarianceMatrix, const size_t nUniverses, const float precision)
 {
     // Apply the smearing matrix on the input predicted cross-section - include any and all underflow/overflow bins while smearing
-    const auto &[smearedPrediction, smearedPredictionCovariance] = UBSmearingHelper::Smear(prediction, predictionCovarianceMatrix, smearingMatrix, smearingCovarianceMatrix, nUniverses, precision);
+    const auto &[smearedPrediction, smearedPredictionCovariance] = UBSmearingHelper::Smear(metadata, prediction, predictionCovarianceMatrix, smearingMatrix, smearingCovarianceMatrix, nUniverses, precision);
 
     // Trim any underflow or overflow bins, so the smeared prediction is on the same footing as the data
     return {
