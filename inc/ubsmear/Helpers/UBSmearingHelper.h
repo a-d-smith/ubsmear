@@ -12,7 +12,7 @@
 namespace ubsmear
 {
 
-/*
+/**
 * @brief A helper class for smearing a predicted cross section so it can be compared to a data measurement
 */
 class UBSmearingHelper
@@ -62,17 +62,19 @@ class UBSmearingHelper
         /**
         * @brief Smear the input predicted cross-section by the smearing matrix
         *
+        * @param metadata the input metadata which contains the information about the binning
         * @param prediction the input predicted differential cross-section in truth-space, supplied as a column vector
         * @param smearingMatrix the input smearing matrix
         *
         * @return the smeared prediction in reco space
         */
-        static UBMatrix Smear(const UBMatrix &prediction, const UBMatrix &smearingMatrix);
+        static UBMatrix Smear(const UBXSecMeta &metadata, const UBMatrix &prediction, const UBMatrix &smearingMatrix);
 
         /**
         * @brief Smear the input predicted cross-section by the smearing matrix, and construct a covariance matrix for the result using the
         *        covariance matrix for the smearing matrix.
         *
+        * @param metadata the input metadata which contains the information about the binning
         * @param prediction the input predicted differential cross-section in truth space, supplied as a column vector
         * @param predictionCovarianceMatrix the covariance matrix to encode an uncertainty on the prediction
         * @param smearingMatrix the input smearing matrix
@@ -82,7 +84,7 @@ class UBSmearingHelper
         *
         * @return a pair, first is the smeared prediction in reco space, second is the covariance matrix for the smeared prediction
         */
-        static std::pair<UBMatrix, UBMatrix> Smear(const UBMatrix &prediction, const UBMatrix &predictionCovarianceMatrix, const UBMatrix &smearingMatrix, const UBMatrix &smearingCovarianceMatrix, const size_t nUniverses, const float precision);
+        static std::pair<UBMatrix, UBMatrix> Smear(const UBXSecMeta &metadata, const UBMatrix &prediction, const UBMatrix &predictionCovarianceMatrix, const UBMatrix &smearingMatrix, const UBMatrix &smearingCovarianceMatrix, const size_t nUniverses, const float precision);
 
         /**
         * @brief Trim underflow and overflow bins from the input matrix
@@ -243,50 +245,72 @@ inline UBMatrix UBSmearingHelper::GetGaussianThrow(const UBMatrix &stdVector, co
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-inline UBMatrix UBSmearingHelper::Smear(const UBMatrix &prediction, const UBMatrix &smearingMatrix)
+inline UBMatrix UBSmearingHelper::Smear(const UBXSecMeta &metadata, const UBMatrix &prediction, const UBMatrix &smearingMatrix)
 {
     // Check that the input matrices have consistent dimensions
     if (prediction.GetColumns() != 1u)
         throw std::invalid_argument("UBSmearingHelper::Smear - input prediction is not a column vector");
 
-    const auto size = prediction.GetRows();
+    const auto size = metadata.GetNBins();
+
+    if (prediction.GetRows() != size)
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input prediction doesn't match the number of bins in the metadata");
+
     if (smearingMatrix.GetRows() != size)
-        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input smearing matrix doesn't match the number of bins of the supplied prediction");
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input smearing matrix doesn't match the number of bins in the metadata");
 
     if (smearingMatrix.GetColumns() != size)
-        throw std::invalid_argument("UBSmearingHelper::Smear - the number of columns of the input smearing matrix doesn't match the number of bins of the supplied prediction");
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of columns of the input smearing matrix doesn't match the number of bins in the metadata");
 
-    // Return the smeared prediction
-    return (smearingMatrix * prediction);
+    // Get the bin widths
+    const auto binWidths = metadata.GetBinWidths();
+
+    // Scale the prediction up by the bin widths (to get a quantity that's proportional to an event rate so it can be smeared)
+    const auto scaledPrediction = ElementWiseOperation(prediction, binWidths, [](const auto &l, const auto& r) { return l * r; });
+
+    // Smear the scaled prediction using the smearing matrix
+    const auto smearedScaledPrediction = smearingMatrix * scaledPrediction;
+
+    // Scale the smeared prediction back down by the bin widths
+    return ElementWiseOperation(smearedScaledPrediction, binWidths, [](const auto &l, const auto& r)
+    {
+        if (r <= std::numeric_limits<float>::epsilon())
+            throw std::invalid_argument("UBSmearingHelper::Smear - input metadata contains a bin with a zero or negative width");
+
+        return l / r;
+    });
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-inline std::pair<UBMatrix, UBMatrix> UBSmearingHelper::Smear(const UBMatrix &prediction, const UBMatrix &predictionCovarianceMatrix, const UBMatrix &smearingMatrix, const UBMatrix &smearingCovarianceMatrix, const size_t nUniverses, const float precision)
+inline std::pair<UBMatrix, UBMatrix> UBSmearingHelper::Smear(const UBXSecMeta &metadata, const UBMatrix &prediction, const UBMatrix &predictionCovarianceMatrix, const UBMatrix &smearingMatrix, const UBMatrix &smearingCovarianceMatrix, const size_t nUniverses, const float precision)
 {
     // Check that the input matrices have consistent dimensions
     if (prediction.GetColumns() != 1u)
         throw std::invalid_argument("UBSmearingHelper::Smear - input prediction is not a column vector");
 
-    const auto size = prediction.GetRows();
+    const auto size = metadata.GetNBins();
+
+    if (prediction.GetRows() != size)
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input prediction doesn't match the number of bins in the metadata");
 
     if (predictionCovarianceMatrix.GetRows() != size)
-        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input prediction covariance matrix doesn't match the number of bins of the supplied prediction");
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input prediction covariance matrix doesn't match the number of bins in the metadata");
 
     if (predictionCovarianceMatrix.GetColumns() != size)
-        throw std::invalid_argument("UBSmearingHelper::Smear - the number of columns of the input prediction covariance matrix doesn't match the number of bins of the supplied prediction");
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of columns of the input prediction covariance matrix doesn't match the number of bins in the metadata");
 
     if (smearingMatrix.GetRows() != size)
-        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input smearing matrix doesn't match the number of bins of the supplied prediction");
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input smearing matrix doesn't match the number of bins in the metadata");
 
     if (smearingMatrix.GetColumns() != size)
-        throw std::invalid_argument("UBSmearingHelper::Smear - the number of columns of the input smearing matrix doesn't match the number of bins of the supplied prediction");
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of columns of the input smearing matrix doesn't match the number of bins in the metadata");
 
     if (smearingCovarianceMatrix.GetRows() != size*size)
-        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input smearing covariance matrix doesn't match the number of bins of the supplied prediction");
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of rows of the input smearing covariance matrix doesn't match the number of bins in the metadata");
 
     if (smearingCovarianceMatrix.GetColumns() != size*size)
-        throw std::invalid_argument("UBSmearingHelper::Smear - the number of columns of the input smearing covariance matrix doesn't match the number of bins of the supplied prediction");
+        throw std::invalid_argument("UBSmearingHelper::Smear - the number of columns of the input smearing covariance matrix doesn't match the number of bins in the metadata");
 
     // Check we have a valid number of universes
     if (nUniverses == 0)
@@ -312,7 +336,7 @@ inline std::pair<UBMatrix, UBMatrix> UBSmearingHelper::Smear(const UBMatrix &pre
     const auto flattenedSmearingMatrix = UBSmearingHelper::Flatten(smearingMatrix);
 
     // Get the smeared prediction
-    const auto smearedPrediction = UBSmearingHelper::Smear(prediction, smearingMatrix);
+    const auto smearedPrediction = UBSmearingHelper::Smear(metadata, prediction, smearingMatrix);
 
     // Setup an empty matrix covariance matrix for the smearde prediction
     auto smearedPredictionCovarianceMatrix = UBMatrixHelper::GetZeroMatrix(size, size);
@@ -330,7 +354,7 @@ inline std::pair<UBMatrix, UBMatrix> UBSmearingHelper::Smear(const UBMatrix &pre
         const auto smearingMatrixUni = UBSmearingHelper::Unflatten(UBSmearingHelper::GetGaussianThrow(stdVectorSmearing, eigenvectorMatrixSmearing, flattenedSmearingMatrix));
 
         // Get the smeared prediction in this universe
-        const auto smearedPredictionUni = UBSmearingHelper::Smear(predictionUni, smearingMatrixUni);
+        const auto smearedPredictionUni = UBSmearingHelper::Smear(metadata, predictionUni, smearingMatrixUni);
 
         // Get the difference between the smeared prediction in this universe and in the central-value universe
         const auto diff = smearedPredictionUni - smearedPrediction;

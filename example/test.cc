@@ -11,11 +11,12 @@ int main()
     // -------------------------------------------------------------------------------------------------------------------------------------
 
     // In this case our dummy input data has 5 bins + an overflow
-    const auto nBinsTotal = 6u;
+    const std::vector<float> binEdges = {0.f, 1.f, 2.f, 3.f, 4.f, 5.f, 10.f};
     const auto hasUnderflow = false;
     const auto hasOverflow = true;
+    const auto scaleByBinWidth = true;
 
-    UBXSecMeta metadata(nBinsTotal, hasUnderflow, hasOverflow);
+    UBXSecMeta metadata(binEdges, hasUnderflow, hasOverflow, scaleByBinWidth);
 
     // -------------------------------------------------------------------------------------------------------------------------------------
     // Load the dummy input data from the supplied files

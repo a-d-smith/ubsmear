@@ -11,7 +11,7 @@
 namespace ubsmear
 {
 
-/*
+/**
 * @brief A helper class for statistical analysis of cross-section data
 */
 class UBStatisticsHelper

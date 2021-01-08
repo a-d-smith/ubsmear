@@ -10,7 +10,7 @@
 namespace ubsmear
 {
 
-/*
+/**
 * @brief A helper class for common tasks in linear algebra
 */
 class UBMatrixHelper
@@ -257,6 +257,15 @@ inline std::pair<UBMatrix, UBMatrix> UBMatrixHelper::GetEigenDecomposition(const
 
     // Get the size of the matrix (it is square)
     const auto size = matrix.GetRows();
+
+    // If the size is one (i.e. the matrix is just a scalar, then the answer is trivial)
+    if (size == 1)
+    {
+        return std::pair<UBMatrix, UBMatrix> (
+            {{ matrix.At(0, 0) }, 1, 1},   // Eigenvalue is the entry of the matrix
+            {{ 1.f }, 1, 1}                // Normalised eigenvector is just the number 1.0
+        );
+    }
 
     // Determine the maximum number of iterations we should use - start by assuming one
     size_t maxIterations = 1;
